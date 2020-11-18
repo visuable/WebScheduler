@@ -3,64 +3,45 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace WebScheduler.Services
 {
-    public class SchedulerHostedService : IHostedService
+    public class SchedulerHostedService : BackgroundService
     {
-        private ITaskContainer _container;
-        private System.Threading.Tasks.Task executing;
-        private CancellationTokenSource source;
+        private IServiceScopeFactory _factory;
 
-        public SchedulerHostedService(ITaskContainer container)
+        public SchedulerHostedService(IServiceScopeFactory factory)
         {
-            _container = container;
-            source = new CancellationTokenSource();
+            _factory = factory;
         }
 
-        public System.Threading.Tasks.Task StartAsync(CancellationToken cancellationToken)
+        protected override async System.Threading.Tasks.Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            executing = ExecuteTask(cancellationToken);
-            if (executing.IsCompleted)
-            {
-                return executing;
-            }
-
-            return System.Threading.Tasks.Task.CompletedTask;
+            await DoWork(stoppingToken);
         }
 
-        public async System.Threading.Tasks.Task StopAsync(CancellationToken cancellationToken)
+        private async System.Threading.Tasks.Task DoWork(CancellationToken stoppingToken)
         {
-            if (executing == null)
-            {
-                return;
-            }
-            try
-            {
-                source.Cancel();
-            }
-            finally
-            {
-                await System.Threading.Tasks.Task.WhenAny(executing, System.Threading.Tasks.Task.Delay(Timeout.Infinite,
-                    cancellationToken));
-            }
-        }
-
-        private async System.Threading.Tasks.Task ExecuteTask(CancellationToken stoppingToken)
-        {
+            using var scope = _factory.CreateScope();
+            _ = scope.ServiceProvider.GetRequiredService<TasksContext>();
+            var container = scope.ServiceProvider.GetRequiredService<ITaskContainer>();
             while (!stoppingToken.IsCancellationRequested)
             {
-                var task = _container.FindTask(new TaskOptions()
+                var task = container.FindTask(new TaskOptions()
                 {
                     IsDone = false,
                     On = DateTime.Now
                 });
                 if (task != null)
                 {
-                    await (task as IExecutable)?.Execute();
+                    await task.Execute();
+                    task.IsDone = true;
+                    container.UpdateTask(task);
                 }
-                Thread.Sleep(500);
+
+                await System.Threading.Tasks.Task.Delay(500, stoppingToken);
             }
         }
     }

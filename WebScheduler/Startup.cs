@@ -21,9 +21,10 @@ namespace WebScheduler
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddControllers();
-            services.AddDbContext<TasksContext>(x => x.UseSqlServer(Configuration.GetConnectionString("DefaultConnection")));
-            services.AddScoped<ITaskContainer, DatabaseTaskContainer>();
-            services.AddSignalR();
+            services.AddHostedService<SchedulerHostedService>();
+            //var connectionString = Configuration.GetConnectionString("DefaultConnection");
+            services.AddDbContext<TasksContext>(x => x.UseSqlServer("Data Source=(LocalDb)\\MSSQLLocalDB; Database=db"));
+            services.AddTransient<ITaskContainer, DatabaseTaskContainer>();
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.

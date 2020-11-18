@@ -28,7 +28,7 @@ namespace WebScheduler
         {
             var t = context.Tasks.FirstOrDefault(x => x.On.Date == options.On.Date &&
                                               x.On.Hour == options.On.Hour &&
-                                              x.On.Minute == options.On.Minute || x.IsDone == options.IsDone);
+                                              x.On.Minute == options.On.Minute && x.IsDone == options.IsDone);
             return t;
         }
     }
